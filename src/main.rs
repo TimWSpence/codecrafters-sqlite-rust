@@ -19,11 +19,8 @@ fn main() -> Result<()> {
             let mut header = [0; 100];
             file.read_exact(&mut header)?;
 
-            // The page size is stored at the 16th byte offset, using 2 bytes in big-endian order
-            #[allow(unused_variables)]
             let page_size = u16::from_be_bytes([header[16], header[17]]);
 
-            // Uncomment this block to pass the first stage
             println!("database page size: {}", page_size);
 
             let mut first_page: Vec<u8> = Vec::with_capacity(page_size.into());
