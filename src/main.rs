@@ -23,11 +23,10 @@ fn main() -> Result<()> {
 
             println!("database page size: {}", page_size);
 
-            let mut first_page: Vec<u8> = Vec::with_capacity(page_size.into());
-            file.rewind()?;
-            file.read_exact(&mut first_page)?;
+            let mut page_header = [0; 8];
+            file.read_exact(&mut page_header)?;
 
-            let num_tables = u16::from_be_bytes([first_page[103], first_page[104]]);
+            let num_tables = u16::from_be_bytes([page_header[3], page_header[4]]);
 
             println!("number of tables: {}", num_tables);
         }
