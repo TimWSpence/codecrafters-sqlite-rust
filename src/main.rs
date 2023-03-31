@@ -25,6 +25,14 @@ fn main() -> Result<()> {
 
             // Uncomment this block to pass the first stage
             println!("database page size: {}", page_size);
+
+            let mut first_page: Vec<u8> = Vec::with_capacity(page_size.into());
+            file.rewind()?;
+            file.read_exact(&mut first_page)?;
+
+            let num_tables = u16::from_be_bytes([first_page[103], first_page[104]]);
+
+            println!("number of tables: {}", num_tables);
         }
         _ => bail!("Missing or invalid command passed: {}", command),
     }
