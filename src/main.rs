@@ -1,6 +1,7 @@
 use anyhow::{bail, Result};
-use std::fs::File;
-use std::io::prelude::*;
+
+mod model;
+use model::*;
 
 fn main() -> Result<()> {
     // Parse arguments
@@ -15,20 +16,12 @@ fn main() -> Result<()> {
     let command = &args[2];
     match command.as_str() {
         ".dbinfo" => {
-            let mut file = File::open(&args[1])?;
-            let mut header = [0; 100];
-            file.read_exact(&mut header)?;
+            let db = Db::open(&args[1])?;
+            let metadata = db.metadata;
 
-            let page_size = u16::from_be_bytes([header[16], header[17]]);
+            println!("database page size: {}", metadata.page_size);
 
-            println!("database page size: {}", page_size);
-
-            let mut page_header = [0; 8];
-            file.read_exact(&mut page_header)?;
-
-            let num_tables = u16::from_be_bytes([page_header[3], page_header[4]]);
-
-            println!("number of tables: {}", num_tables);
+            println!("number of tables: {}", metadata.number_of_tables);
         }
         _ => bail!("Missing or invalid command passed: {}", command),
     }
