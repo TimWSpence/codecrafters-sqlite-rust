@@ -146,6 +146,13 @@ mod tests {
     fn var_int() {
         assert_eq!(VarInt::read(&[0x01]).value, 1);
         assert_eq!(VarInt::read(&[0x81, 0x01]).value, 0x81);
+        assert_eq!(
+            VarInt::read(&[0xc0, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x01]).value,
+            {
+                let expected: u64 = (1 << 63) | 1;
+                expected as i64
+            }
+        );
     }
 
     #[test]
