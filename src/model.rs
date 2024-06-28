@@ -123,10 +123,10 @@ impl VarInt {
         for i in 0..9 {
             if i == 8 {
                 let additional_bits: u64 = bytes[i].into();
-                let value = value << 8 | additional_bits;
+                value = value << 8 | additional_bits;
             } else {
                 let additional_bits: u64 = (bytes[i] & !(1 << 7)).into();
-                let value = value << 7 | additional_bits;
+                value = value << 7 | additional_bits;
                 if (bytes[i] & (1 << 7)) == 0 {
                     break;
                 }
@@ -141,6 +141,12 @@ impl VarInt {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn var_int() {
+        assert_eq!(VarInt::read(&[0x01]).value, 1);
+        assert_eq!(VarInt::read(&[0x81, 0x01]).value, 0x81);
+    }
 
     #[test]
     fn parses_metadata() {
