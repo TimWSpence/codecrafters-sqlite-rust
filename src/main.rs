@@ -14,14 +14,18 @@ fn main() -> Result<()> {
 
     // Parse command and act accordingly
     let command = &args[2];
+    let mut db = Db::open(&args[1])?;
+
     match command.as_str() {
         ".dbinfo" => {
-            let db = Db::open(&args[1])?;
             let metadata = db.metadata;
-
             println!("database page size: {}", metadata.page_size);
 
             println!("number of tables: {}", metadata.number_of_tables);
+        }
+        ".tables" => {
+            let tables = db.tables()?;
+            println!("{}", tables.join(" "));
         }
         _ => bail!("Missing or invalid command passed: {}", command),
     }

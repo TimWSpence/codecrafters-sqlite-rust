@@ -113,12 +113,8 @@ impl BTree {
     }
 }
 
-struct VarInt {
-    value: i64,
-}
-
-impl VarInt {
-    fn read(bytes: &[u8]) -> VarInt {
+mod var_int {
+    pub fn read(bytes: &[u8]) -> i64 {
         let mut value: u64 = 0;
         for i in 0..9 {
             if i == 8 {
@@ -132,9 +128,7 @@ impl VarInt {
                 }
             }
         }
-        VarInt {
-            value: value as i64,
-        }
+        value as i64
     }
 }
 
@@ -144,10 +138,10 @@ mod tests {
 
     #[test]
     fn var_int() {
-        assert_eq!(VarInt::read(&[0x01]).value, 1);
-        assert_eq!(VarInt::read(&[0x81, 0x01]).value, 0x81);
+        assert_eq!(var_int::read(&[0x01]), 1);
+        assert_eq!(var_int::read(&[0x81, 0x01]), 0x81);
         assert_eq!(
-            VarInt::read(&[0xc0, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x01]).value,
+            var_int::read(&[0xc0, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x01]),
             {
                 let expected: u64 = (1 << 63) | 1;
                 expected as i64
