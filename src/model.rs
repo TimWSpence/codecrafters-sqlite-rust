@@ -70,6 +70,14 @@ impl TableMetadata {
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
+enum BTreeType {
+    InteriorIndex = 0x02,
+    InteriorTable = 0x05,
+    LeafIndex = 0x0a,
+    LeafTable = 0x0d,
+}
+
 enum BTree {
     InteriorIndex { raw: Vec<u8>, header: BTreeHeader },
     InteriorTable { raw: Vec<u8>, header: BTreeHeader },
@@ -78,18 +86,39 @@ enum BTree {
 }
 
 struct BTreeHeader {
+    type_: BTreeType,
     number_of_cells: u16,
     content_area_offset: u16,
+    rightmost_pointer: Option<u32>,
 }
 
 impl BTreeHeader {
     fn parse(bytes: &[u8]) -> BTreeHeader {
+        let type_ = match bytes[0] {
+            0x02 => BTreeType::InteriorIndex,
+            0x05 => BTreeType::InteriorTable,
+            0x0a => BTreeType::LeafIndex,
+            0x0d => BTreeType::LeafTable,
+            x => panic!("{x} is not a valid btree type"),
+        };
+
         let number_of_cells = u16::from_be_bytes([bytes[3], bytes[4]]);
         let content_area_offset = u16::from_be_bytes([bytes[5], bytes[6]]);
 
+        let rightmost_pointer =
+            if type_ == BTreeType::InteriorIndex || type_ == BTreeType::InteriorTable {
+                Some(u32::from_be_bytes([
+                    bytes[8], bytes[9], bytes[10], bytes[11],
+                ]))
+            } else {
+                None
+            };
+
         BTreeHeader {
+            type_,
             number_of_cells,
             content_area_offset,
+            rightmost_pointer,
         }
     }
 }
@@ -103,12 +132,11 @@ impl BTree {
 
         let header = BTreeHeader::parse(&raw);
 
-        match raw[0] {
-            0x02 => Ok(InteriorIndex { raw, header }),
-            0x05 => Ok(InteriorTable { raw, header }),
-            0x0a => Ok(LeafIndex { raw, header }),
-            0x0d => Ok(LeafTable { raw, header }),
-            x => Err(anyhow!("{x} is not a valid btree type")),
+        match header.type_ {
+            BTreeType::InteriorIndex => Ok(InteriorIndex { raw, header }),
+            BTreeType::InteriorTable => Ok(InteriorTable { raw, header }),
+            BTreeType::LeafIndex => Ok(LeafIndex { raw, header }),
+            BTreeType::LeafTable => Ok(LeafTable { raw, header }),
         }
     }
 }
@@ -156,5 +184,55 @@ mod tests {
 
         assert_eq!(metadata.page_size, 4096);
         assert_eq!(metadata.number_of_tables, 3);
+    }
+
+    #[test]
+    fn parses_leaf_index_header() {
+        let header = BTreeHeader::parse(&[0x0a, 0, 0, 0x12, 0x34, 0x56, 0x78, 0]);
+
+        assert_eq!(header.type_, BTreeType::LeafIndex);
+        assert_eq!(header.number_of_cells, 0x1234);
+        assert_eq!(header.content_area_offset, 0x5678);
+        assert_eq!(header.rightmost_pointer, None);
+    }
+
+    #[test]
+    fn parses_leaf_table_header() {
+        let header = BTreeHeader::parse(&[0x0d, 0, 0, 0, 1, 0, 0, 0]);
+
+        assert_eq!(header.type_, BTreeType::LeafTable);
+        assert_eq!(header.number_of_cells, 1);
+        assert_eq!(header.content_area_offset, 0);
+        assert_eq!(header.rightmost_pointer, None);
+    }
+
+    #[test]
+    fn parses_interior_index_header() {
+        let header = BTreeHeader::parse(&[
+            0x02, 0, 0, 0x12, 0x34, 0x56, 0x78, 0, 0x9a, 0xbc, 0xde, 0xf0,
+        ]);
+
+        assert_eq!(header.type_, BTreeType::InteriorIndex);
+        assert_eq!(header.number_of_cells, 0x1234);
+        assert_eq!(header.content_area_offset, 0x5678);
+        assert_eq!(header.rightmost_pointer, Some(0x9abcdef0));
+    }
+
+    #[test]
+    fn parses_interior_table_header() {
+        let header = BTreeHeader::parse(&[
+            0x05, 0, 0, 0, 1, 0, 8, 0, 0, 0, 0, 42,
+        ]);
+
+        assert_eq!(header.type_, BTreeType::InteriorTable);
+        assert_eq!(header.number_of_cells, 1);
+        assert_eq!(header.content_area_offset, 8);
+        assert_eq!(header.rightmost_pointer, Some(42));
+    }
+
+    #[test]
+    #[should_panic(expected = "is not a valid btree type")]
+    fn rejects_invalid_btree_type() {
+        BTreeHeader::parse(&[0xff; 12]);
     }
 }
